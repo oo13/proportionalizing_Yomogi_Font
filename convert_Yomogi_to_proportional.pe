@@ -1,0 +1,100 @@
+#!/usr/bin/fontforge
+# Copyright © 2023 OOTA, Masato
+# This is published under CC0 1.0.
+# For more information, see CC0 1.0 Universal (CC0 1.0) at <https://creativecommons.org/publicdomain/zero/1.0/legalcode>.
+family_name = "Kusamochi"
+weight = "Regular"
+font_name = family_name + "-" + weight
+display_name = family_name + " " + weight
+copyright = family_name + " is a proportional version of Yomogi Font.\n" + $copyright
+output_filename = font_name + ".ttf"
+
+# Set the font name and copyright notice.
+SetFontNames(font_name, family_name, display_name, "", copyright)
+
+# Range
+min_i = 0x20
+max_i = 0xFFFF
+
+# Apply UnlinkReference() to all glyphs to make possible to change the position of each glyph independently.
+# It does not significantly affect the size of the file.
+# You can use MultipleEncodingsToReferences() to recover it, but I feel it's too aggressive.
+i = min_i
+while (i <= max_i)
+  c = UCodePoint(i)
+  if (WorthOutputting(c))
+    Select(c)
+    if (GlyphInfo("RefCount") > 0)
+      UnlinkReference()
+    endif
+  endif
+  i = i + 1
+endloop
+
+# Change the L&R bearings.
+i = min_i
+while (i <= max_i)
+  c = UCodePoint(i)
+  if (WorthOutputting(c))
+    Select(c)
+    width = GlyphInfo("Width")
+    if (DrawsSomething(c))
+      if (width <= 0                   /* COMBINING characters */ \
+       || (0x2000 <= i && i < 0x2015)  /* Space and Dashes */ \
+       || (0x2017 <= i && i < 0x201F)  /* Quotations */ \
+       || (0x2022 <= i && i < 0x202F)  /* BULLET, Leaders, and Spaces */ \
+       || i == 0x22EE                  /* VERTICAL ELLIPSIS */ \
+       || i == 0x22EF                  /* HORIZONTAL ELLIPSIS */ \
+       || i == 0x2312                  /* COMBINING character */ \
+       || i == 0x3001                  /* IDEOGRAPHIC COMMA */ \
+       || i == 0x3002                  /* IDEOGRAPHIC FULL STOP */ \
+       || (0x3007 <= i && i <= 0x3011) /* Parentheses */ \
+       || (0x3014 <= i && i <= 0x301B) /* Parentheses */ \
+       || (0x301D <= i && i <= 0x301F) /* Quotations */ \
+       || i == 0x30FB                  /* KATAKANA MIDDLE DOT */ \
+       || (0xFE00 <= i && i != 0xFF01 && i != 0xFF1F && i != 0xFF5E)) /* Uncommon characters in Vertical, FULLWIDTH, HALFWIDTH characters */
+        # do nothing
+      elseif (i < 0x2000 || (0xFB00 <= i && i <= 0xFDFF))
+        # not East Asian Width
+        SetLBearing(48)
+        SetRBearing(48)
+      else
+        # East Asian Width, hopefully.
+        SetLBearing(96)
+        SetRBearing(96)
+      endif
+    else
+      # Space Characters
+      # Special cases
+      if (i == 0x20 || i == 0xA0)
+        # SPACE and NO-BREAK SPACE
+        SetWidth(300)
+      elseif (i == 0x2002)
+        # EN SPACE
+        SetWidth(400)
+      elseif (i == 0x2003 || i == 0x3000)
+        # EM SPACE & IDEOGRAPHIC SPACE
+        # In Yomogi Font, U+2003 and U+3000 share a glyph. Apparently, it's a general way of Japanese fonts.
+        SetWidth(800)
+      else
+        # As far as I know, this is not going to be executed.
+        # Narrow to 60% width.
+        # In case multiple codepoints share a glyph, avoid shrinking it more than one. (cf. In Yomogi Font, U+2003 and U+3000 share a glyph.)
+        c2 = GlyphInfo("Unicode")
+        if (c2 >= c)
+          SetWidth(60, 2)
+        endif
+      endif
+    endif
+  endif
+  i = i + 1
+endloop
+
+# Output the result file.
+Generate(output_filename)
+
+# Quit
+answer = AskUser('The font file "' + output_filename + '" was saved. Quit? [Y/n]', "Y")
+if (answer == "y" || answer == "Y")
+  Quit(0)
+endif
